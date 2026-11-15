@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <AssemblyName>SGTAutoShout</AssemblyName>
+    <RootNamespace>SGT.OmniModules</RootNamespace>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <NoWarn>$(NoWarn);CS0436;MSB3277;MSB3246;CS8600;CS8601;CS8602;CS8603;CS8604</NoWarn>
+
+    <!-- 宿主与卫月开发 DLL 的默认位置；换机器/换版本时用 -p: 覆盖 -->
+    <DalamudDevDir Condition="'$(DalamudDevDir)' == ''">$(APPDATA)\XIVLauncherCN\addon\Hooks\dev</DalamudDevDir>
+    <OmniHostDir Condition="'$(OmniHostDir)' == ''">$(APPDATA)\XIVLauncherCN\installedPlugins\OmniToolbox\1.2.0.5</OmniHostDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="OmniToolbox.Common">
+      <HintPath>$(OmniHostDir)\OmniToolbox.Common.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="TreeTools">
+      <HintPath>$(OmniHostDir)\TreeTools.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Dalamud">
+      <HintPath>$(DalamudDevDir)\Dalamud.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Dalamud.Bindings.ImGui">
+      <HintPath>$(DalamudDevDir)\Dalamud.Bindings.ImGui.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="FFXIVClientStructs">
+      <HintPath>$(DalamudDevDir)\FFXIVClientStructs.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Lumina">
+      <HintPath>$(DalamudDevDir)\Lumina.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Lumina.Excel">
+      <HintPath>$(DalamudDevDir)\Lumina.Excel.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>

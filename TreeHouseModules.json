@@ -5,15 +5,15 @@
       "InternalName": "SGTAutoShout",
       "Author": "Slunyu GuiT",
       "RepositoryURL": "https://github.com/SlunyuGuiT-L/SGT",
-      "Version": "1.0.0",
+      "Version": "1.1.0",
       "ApiVersion": 1,
       "MinimumOmniVersion": "1.1.8.2",
-      "File": "Modules/SGTAutoShout.cs",
-      "Sha256": "7D898910E36F56A30BB0477E809A51830FFC1512F88DDC356AD6E4C4F20DB907",
+      "File": "Modules/SGTAutoShout.dll",
+      "Sha256": "6CDBB301B068A2850475798194CF8D017B4095FA7AA3A60ADA09B0510B518908",
       "Localization": {
         "Source": {
           "Title": "SGT 自动喊话",
-          "Description": "进本、进战、脱战或血量过低时，自动在指定频道发送一条可定制的消息。默认关闭。"
+          "Description": "进本、完成任务、T 盾姿、四人本最终 BOSS 残血时自动发送消息；支持队伍/团队/喊话/说话/部队频道与占位符。"
         }
       }
     }

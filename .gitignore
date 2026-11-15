@@ -1,4 +1,9 @@
+# 编译中间产物
 tools/.build/
+src/**/bin/
+src/**/obj/
 bin/
 obj/
+
+# 本地笔记与指南，不发布
 README-上传指南.md
