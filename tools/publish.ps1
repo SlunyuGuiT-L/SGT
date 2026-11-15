@@ -206,7 +206,9 @@ if ($Update)
     [System.IO.File]::WriteAllText($manifestPath, $manifestText, $utf8NoBom)
 }
 
-# ---------- 推 GitHub 后自查：拿远端真实字节比对 ----------
+# ---------- 推 GitHub 后自查 ----------
+# 版本与摘要以 GitHub API 为准（git 仓库真实内容，不走 CDN）；
+# raw 只用于提示"宿主现在会取到什么"，因为 raw 有缓存，刚推完可能还是旧的。
 
 if ($Verify)
 {
@@ -216,67 +218,56 @@ if ($Verify)
     {
         if ($module.RepositoryURL -notmatch '^https://github\.com/([^/]+)/([^/]+)$') { $problems.Add("无法从 RepositoryURL 解析仓库"); continue }
 
-        $owner  = $Matches[1]
-        $repo   = $Matches[2]
-        $branch = 'main'
-        $rawBase = "https://raw.githubusercontent.com/$owner/$repo/$branch"
+        $owner = $Matches[1]
+        $repo  = $Matches[2]
+        $apiBase = "https://api.github.com/repos/$owner/$repo/contents"
+        $rawBase = "https://raw.githubusercontent.com/$owner/$repo/main"
+        $headers = @{ 'User-Agent' = 'omni-publish-verify'; 'Accept' = 'application/vnd.github+json' }
 
-        $remoteManifestPath = Join-Path $env:TEMP "omni-remote-$repo.json"
-        $fetched = $false
-        for ($attempt = 1; $attempt -le 5; $attempt++)
-        {
-            try
-            {
-                Invoke-WebRequest -Uri "$rawBase/TreeHouseModules.json" -OutFile $remoteManifestPath -TimeoutSec 40 -UseBasicParsing
-                $fetched = $true
-                break
+        $cred = "protocol=https`nhost=github.com`n`n" | git credential fill 2>$null
+        $token = ($cred | Where-Object { $_ -like 'password=*' }) -replace '^password=',''
+        if ($token) { $headers['Authorization'] = "Bearer $token" }
+
+        function Get-ApiFile([string]$path) {
+            try {
+                $entry = Invoke-RestMethod -Uri "$apiBase/$($path)?ref=main" -Headers $headers -TimeoutSec 40
+                if (-not $entry.content) { return $null }
+                return [Convert]::FromBase64String(($entry.content -replace '\s', ''))
             }
-            catch
-            {
-                if ($attempt -eq 5) { Write-Host "  拉取远端清单失败：$($_.Exception.Message)" -ForegroundColor Red }
-                else { Start-Sleep -Seconds 2 }
-            }
+            catch { return $null }
         }
 
-        if (-not $fetched) { $problems.Add("$name 远端清单拉不到（推送成功了吗？分支是 main 吗？）"); continue }
+        $manifestBytes = Get-ApiFile 'TreeHouseModules.json'
+        if (-not $manifestBytes) { $problems.Add("$name 从 GitHub API 取清单失败（仓库公开吗？分支是 main 吗？）"); continue }
 
-        $remoteText     = [System.IO.File]::ReadAllText($remoteManifestPath)
-        $remoteManifest = $remoteText | ConvertFrom-Json
-        $remoteModule   = $remoteManifest.Modules | Where-Object { $_.InternalName -eq $module.InternalName } | Select-Object -First 1
-
+        $remoteManifest = ([System.Text.Encoding]::UTF8.GetString($manifestBytes)) | ConvertFrom-Json
+        $remoteModule = $remoteManifest.Modules | Where-Object { $_.InternalName -eq $module.InternalName } | Select-Object -First 1
         if (-not $remoteModule) { $problems.Add("远端清单里没有 $($module.InternalName)"); continue }
 
-        Write-Host "  远端 Version : $($remoteModule.Version)   （本地 $($module.Version)）"
-        if ($remoteModule.Version -ne $module.Version) { $problems.Add("远端 Version 与本地不一致，忘了 push？") }
+        Write-Host "  远端清单 Version : $($remoteModule.Version)   （本地 $($module.Version)）"
+        if ($remoteModule.Version -ne $module.Version) { $problems.Add("$name 远端清单版本落后，push 没成功或还没生效") }
 
-        $remoteFile = Join-Path $env:TEMP "omni-remote-$($module.InternalName)$([System.IO.Path]::GetExtension($module.File))"
-        $ok = $false
-        for ($attempt = 1; $attempt -le 5; $attempt++)
-        {
-            try
-            {
-                Invoke-WebRequest -Uri "$rawBase/$($remoteModule.File)" -OutFile $remoteFile -TimeoutSec 60 -UseBasicParsing
-                $ok = $true
-                break
-            }
-            catch
-            {
-                if ($attempt -eq 5) { Write-Host "  拉取远端文件失败：$($_.Exception.Message)" -ForegroundColor Red }
-                else { Start-Sleep -Seconds 2 }
+        $fileBytes = Get-ApiFile $remoteModule.File
+        if (-not $fileBytes) { $problems.Add("$name 从 API 取模块文件失败"); continue }
+
+        $sha = [System.Security.Cryptography.SHA256]::Create()
+        $apiFileHash = ([System.BitConverter]::ToString($sha.ComputeHash($fileBytes)) -replace '-', '')
+        Write-Host "  仓库里文件 SHA   : $apiFileHash"
+        Write-Host "  清单声明 SHA     : $($remoteModule.Sha256)"
+        Write-Host "  两者一致         : $($apiFileHash -eq $remoteModule.Sha256.ToUpperInvariant())"
+        if ($apiFileHash -ne $remoteModule.Sha256.ToUpperInvariant()) { $problems.Add("$name 仓库里的文件与清单 SHA256 不一致（宿主会拒载）") }
+
+        # raw 提示：宿主装的时候走 raw，有缓存
+        try {
+            $rawManifest = (Invoke-WebRequest -Uri "$rawBase/TreeHouseModules.json" -TimeoutSec 40 -UseBasicParsing).Content | ConvertFrom-Json
+            $rawVersion  = ($rawManifest.Modules | Where-Object { $_.InternalName -eq $module.InternalName }).Version
+            if ($rawVersion -ne $remoteModule.Version) {
+                Write-Host "  提示：raw CDN 仍在缓存旧清单（raw=$rawVersion / 仓库=$($remoteModule.Version)），宿主可能要等几分钟才看到更新" -ForegroundColor Yellow
             }
         }
-
-        if (-not $ok) { $problems.Add("$name 远端文件拉不到"); continue }
-
-        $remoteHash = (Get-FileHash $remoteFile -Algorithm SHA256).Hash
-        $declaredHash = $remoteModule.Sha256.ToUpperInvariant()
-        Write-Host "  远端文件 SHA : $remoteHash"
-        Write-Host "  清单声明 SHA : $declaredHash"
-        Write-Host "  字节一致     : $($remoteHash -eq $declaredHash)"
-        if ($remoteHash -ne $declaredHash) { $problems.Add("$name 远端文件与清单 SHA256 不一致（宿主会拒载）") }
+        catch { Write-Host "  （raw 检查跳过）" }
     }
 }
-
 # ---------- 结论 ----------
 
 if ($problems.Count -eq 0)
