@@ -4,6 +4,7 @@
 #   .\publish.ps1 -Build       编译 src 下的模块工程，覆盖 Modules 里的 DLL
 #   .\publish.ps1 -Check       对 .cs 用宿主 DLL 编译、对 .dll 直接做契约预检
 #   .\publish.ps1 -Update      重算 SHA256 写回 TreeHouseModules.json
+#   .\publish.ps1 -Verify      推完自查：匿名拉远端清单与文件，比对版本和 SHA256
 #
 # 推 GitHub 前一般跑：.\publish.ps1 -Build -Check -Update
 
@@ -12,6 +13,7 @@ param(
     [switch]$Build,
     [switch]$Check,
     [switch]$Update,
+    [switch]$Verify,
     [string]$HostDir,
     [string]$DalamudDevDir = (Join-Path $env:AppData 'XIVLauncherCN\addon\Hooks\dev'),
     [string]$ModuleCheckDll = 'E:\dshku\refs\_check\bin\Release\net10.0-windows\ModuleCheck.dll'
@@ -204,11 +206,90 @@ if ($Update)
     [System.IO.File]::WriteAllText($manifestPath, $manifestText, $utf8NoBom)
 }
 
+# ---------- 推 GitHub 后自查：拿远端真实字节比对 ----------
+
+if ($Verify)
+{
+    Write-Host "`n================ 远端自查 ================"
+
+    foreach ($module in $manifest.Modules)
+    {
+        if ($module.RepositoryURL -notmatch '^https://github\.com/([^/]+)/([^/]+)$') { $problems.Add("无法从 RepositoryURL 解析仓库"); continue }
+
+        $owner  = $Matches[1]
+        $repo   = $Matches[2]
+        $branch = 'main'
+        $rawBase = "https://raw.githubusercontent.com/$owner/$repo/$branch"
+
+        $remoteManifestPath = Join-Path $env:TEMP "omni-remote-$repo.json"
+        $fetched = $false
+        for ($attempt = 1; $attempt -le 5; $attempt++)
+        {
+            try
+            {
+                Invoke-WebRequest -Uri "$rawBase/TreeHouseModules.json" -OutFile $remoteManifestPath -TimeoutSec 40 -UseBasicParsing
+                $fetched = $true
+                break
+            }
+            catch
+            {
+                if ($attempt -eq 5) { Write-Host "  拉取远端清单失败：$($_.Exception.Message)" -ForegroundColor Red }
+                else { Start-Sleep -Seconds 2 }
+            }
+        }
+
+        if (-not $fetched) { $problems.Add("$name 远端清单拉不到（推送成功了吗？分支是 main 吗？）"); continue }
+
+        $remoteText     = [System.IO.File]::ReadAllText($remoteManifestPath)
+        $remoteManifest = $remoteText | ConvertFrom-Json
+        $remoteModule   = $remoteManifest.Modules | Where-Object { $_.InternalName -eq $module.InternalName } | Select-Object -First 1
+
+        if (-not $remoteModule) { $problems.Add("远端清单里没有 $($module.InternalName)"); continue }
+
+        Write-Host "  远端 Version : $($remoteModule.Version)   （本地 $($module.Version)）"
+        if ($remoteModule.Version -ne $module.Version) { $problems.Add("远端 Version 与本地不一致，忘了 push？") }
+
+        $remoteFile = Join-Path $env:TEMP "omni-remote-$($module.InternalName)$([System.IO.Path]::GetExtension($module.File))"
+        $ok = $false
+        for ($attempt = 1; $attempt -le 5; $attempt++)
+        {
+            try
+            {
+                Invoke-WebRequest -Uri "$rawBase/$($remoteModule.File)" -OutFile $remoteFile -TimeoutSec 60 -UseBasicParsing
+                $ok = $true
+                break
+            }
+            catch
+            {
+                if ($attempt -eq 5) { Write-Host "  拉取远端文件失败：$($_.Exception.Message)" -ForegroundColor Red }
+                else { Start-Sleep -Seconds 2 }
+            }
+        }
+
+        if (-not $ok) { $problems.Add("$name 远端文件拉不到"); continue }
+
+        $remoteHash = (Get-FileHash $remoteFile -Algorithm SHA256).Hash
+        $declaredHash = $remoteModule.Sha256.ToUpperInvariant()
+        Write-Host "  远端文件 SHA : $remoteHash"
+        Write-Host "  清单声明 SHA : $declaredHash"
+        Write-Host "  字节一致     : $($remoteHash -eq $declaredHash)"
+        if ($remoteHash -ne $declaredHash) { $problems.Add("$name 远端文件与清单 SHA256 不一致（宿主会拒载）") }
+    }
+}
+
 # ---------- 结论 ----------
 
 if ($problems.Count -eq 0)
 {
-    Write-Host "`n全部通过，可以推 GitHub 了。" -ForegroundColor Green
+    if ($Verify -and -not $Build -and -not $Update)
+    {
+        Write-Host "`n全部通过：远端与本地一致，别人装到的就是这份。" -ForegroundColor Green
+    }
+    else
+    {
+        Write-Host "`n全部通过，可以推 GitHub 了。" -ForegroundColor Green
+    }
+
     exit 0
 }
 
