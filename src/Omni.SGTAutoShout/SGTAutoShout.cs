@@ -137,9 +137,9 @@ public sealed class SGTAutoShout : OmniModuleBase
         ImGui.Spacing();
         OmniControls.SectionLabel(OmniLoc.Get(this, Key.SecComplete));
         changed |= DrawCheckbox(Key.LblCompleteEnabled, "##completeEnabled", config.CompleteEnabled, value => config.CompleteEnabled = value);
+        ImGui.TextDisabled(OmniLoc.Get(this, Key.HintCompleteTiming));
         changed |= DrawMultiline(Key.LblCompleteMessage, "##completeMessage", config.CompleteMessage, value => config.CompleteMessage = value);
         changed |= DrawSlider(Key.LblCompleteDelay, "##completeDelay", config.CompleteDelayMs, 0, 10000, value => config.CompleteDelayMs = value);
-        ImGui.TextDisabled(OmniLoc.Get(this, Key.HintCompleteTiming));
 
         ImGui.Spacing();
         OmniControls.SectionLabel(OmniLoc.Get(this, Key.SecStance));
@@ -257,12 +257,29 @@ public sealed class SGTAutoShout : OmniModuleBase
     {
         ImGui.TextUnformatted(OmniLoc.Get(this, key));
         var text    = value;
-        var changed = OmniControls.InputTextMultiline(id, ref text, 400, new System.Numerics.Vector2(ImGui.GetContentRegionAvail().X, 56));
+        var changed = DrawMultilineInput(id, ref text);
         if (!changed)
             return false;
 
         setValue(text);
         return true;
+    }
+
+    /// <summary>多行文本框：高度随行数自适应（2~14 行），宽度占满可用区域。</summary>
+    private static bool DrawMultilineInput(string id, ref string text, int minLines = 2, int maxLines = 14)
+    {
+        var lines = 1;
+        foreach (var character in text)
+        {
+            if (character == '\n')
+                lines++;
+        }
+
+        lines = Math.Clamp(lines, minLines, maxLines);
+        var height = ImGui.GetTextLineHeight() * lines + ImGui.GetStyle().FramePadding.Y * 2f;
+        var width  = ImGui.GetContentRegionAvail().X;
+
+        return OmniControls.InputTextMultiline(id, ref text, 4000, new System.Numerics.Vector2(width, height));
     }
 
     private bool DrawSlider(string key, string id, int value, int minimum, int maximum, Action<int> setValue)
@@ -489,8 +506,8 @@ public sealed class SGTAutoShout : OmniModuleBase
         [Key.CmdUsage]    = "用法：/omni SGTAutoShout test | testcomplete | testlowhp | teststance | status | debug",
 
         [Key.HintCompleteTiming] = "通关时发送；团灭、放弃副本不发送。",
-        [Key.HintStance]         = "可用 {tank} 表示没开盾姿的 T 名字；只检测玩家 T（骑士 / 战士 / 暗黑骑士 / 绝枪战士），NPC 队友不检测。",
-        [Key.HintLowHp]          = "只对四人副本生效，每次副本判定一次；LB 没满或本副本已用过 LB 时不喊话。可用 {boss} / {hp} / {threshold}。",
+        [Key.HintStance]         = "只检测玩家 T（骑士 / 战士 / 暗黑骑士 / 绝枪战士），NPC 队友不检测。",
+        [Key.HintLowHp]          = "只对四人副本生效，每次副本判定一次；LB 没满或本副本已用过 LB 时不喊话。",
         [Key.HintChannelStripped] = "文本框里的 /p /a /r 等频道前缀会自动去掉，实际频道以「发送设置」为准。",
         [Key.HintMultiLine]       = "多行文本会逐行发送，每行间隔约 0.3 秒。",
         [Key.HintPlaceholders]   = "可用变量：{duty} 副本名、{territory} 区域名、{player} 角色名、{boss} BOSS 名、{hp} 血量百分比、{threshold} 阈值、{tank} T 名字。",

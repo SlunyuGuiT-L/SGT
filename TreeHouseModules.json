@@ -5,11 +5,11 @@
       "InternalName": "SGTAutoShout",
       "Author": "Slunyu GuiT",
       "RepositoryURL": "https://github.com/SlunyuGuiT-L/SGT",
-      "Version": "1.2.0",
+      "Version": "1.2.1",
       "ApiVersion": 1,
       "MinimumOmniVersion": "1.2.0.5",
       "File": "Modules/SGTAutoShout.dll",
-      "Sha256": "B800EE0E391512D2B662E77D3FCAE360C29D3100E042E59CA277C36E6C254CCB",
+      "Sha256": "890F1BE3A6DFD51DC90B85EA361507CC29E9DB0A165761247DA4FF02666D63FB",
       "Localization": {
         "Source": {
           "Title": "SGT 自动喊话",

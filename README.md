@@ -1,6 +1,6 @@
 # SGT 自动喊话
 
-Omni Toolbox 的在线模块，由独立卫月插件 [DutyAnnounce](../) 0.7.0 移植而来。
+Omni Toolbox 的在线模块，由独立卫月插件 [DutyAnnounce](../) 0.7.2 移植而来。
 
 进本、副本通关、T 没开盾姿、四人本最终 BOSS 残血时，自动往聊天频道发一条可定制的消息。
 
