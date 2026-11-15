@@ -54,6 +54,7 @@ https://github.com/SlunyuGuiT-L/SGT
 | `/omni SGTAutoShout teststance` | 测试盾姿喊话 |
 | `/omni SGTAutoShout status` | 打印当前状态（在副本 / 野外、队伍人数、待发送） |
 | `/omni SGTAutoShout debug` | 打印调试信息（区域 ID、CFC、LB、盾姿、BOSS 匹配情况） |
+| `/omni SGTAutoShout`（不带参数） | 打印用法 |
 
 和原插件的差别：原来的 `/dann on|off|config` 不再需要——启停用 `/omni on|off SGTAutoShout`，设置面板在「树树妙妙屋」里。
 

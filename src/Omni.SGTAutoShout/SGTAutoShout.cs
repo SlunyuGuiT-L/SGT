@@ -78,8 +78,14 @@ public sealed class SGTAutoShout : OmniModuleBase
     public override bool TryHandleCommand(string arguments)
     {
         var command = (arguments ?? string.Empty).Trim().ToLowerInvariant();
-        if (command.Length == 0 || watcher is not { } active)
+        if (watcher is not { } active)
             return false;
+
+        if (command.Length == 0 || command == "help")
+        {
+            Svc.ChatGui.Print($"[SGT] {OmniLoc.Get(this, Key.CmdUsage)}");
+            return true;
+        }
 
         switch (command)
         {
@@ -262,7 +268,8 @@ public sealed class SGTAutoShout : OmniModuleBase
     {
         ImGui.TextUnformatted(OmniLoc.Get(this, key));
         var current = value;
-        if (!OmniControls.SliderInt(id, ref current, minimum, maximum, "%d", 260))
+        var width   = Math.Min(260f, ImGui.GetContentRegionAvail().X);
+        if (!OmniControls.SliderInt(id, ref current, minimum, maximum, "%d", width))
             return false;
 
         setValue(Math.Clamp(current, minimum, maximum));
@@ -381,6 +388,7 @@ public sealed class SGTAutoShout : OmniModuleBase
         public const string CmdStance   = "Cmd.TestStance";
         public const string CmdStatus   = "Cmd.Status";
         public const string CmdDebug    = "Cmd.Debug";
+        public const string CmdUsage    = "Cmd.Usage";
 
         public const string HintTop             = "Hint.Top";
         public const string HintCompleteTiming  = "Hint.CompleteTiming";
@@ -445,6 +453,7 @@ public sealed class SGTAutoShout : OmniModuleBase
         [Key.CmdStance]   = "测试盾姿喊话",
         [Key.CmdStatus]   = "查看当前状态",
         [Key.CmdDebug]    = "输出调试信息",
+        [Key.CmdUsage]    = "用法：/omni SGTAutoShout test | testcomplete | testlowhp | teststance | status | debug",
 
         [Key.HintTop]            = "进本 / 完成任务时自动发一条消息到聊天频道，默认小队。模块启用即为总开关。",
         [Key.HintCompleteTiming] = "触发时机是副本通关（Duty Completed），不是离开副本；中途团灭、放弃不触发。",
@@ -460,20 +469,20 @@ public sealed class SGTAutoShout : OmniModuleBase
         [Key.SecSend]     = "发送设置",
         [Key.SecStatus]   = "状态",
 
-        [Key.LblEnterEnabled]     = "进本时发送##EnterEnabled",
+        [Key.LblEnterEnabled]     = "进本时发送",
         [Key.LblEnterMessage]     = "进本文案",
         [Key.LblEnterDelay]       = "进本延迟（毫秒）",
-        [Key.LblCompleteEnabled]  = "副本通关时发送##CompleteEnabled",
+        [Key.LblCompleteEnabled]  = "副本通关时发送",
         [Key.LblCompleteMessage]  = "通关文案",
         [Key.LblCompleteDelay]    = "完成延迟（毫秒）",
-        [Key.LblStanceEnabled]    = "进本后检测 T 的盾姿，没开就喊话##TankStanceEnabled",
+        [Key.LblStanceEnabled]    = "进本后检测 T 的盾姿，没开就喊话",
         [Key.LblStanceDelay]      = "盾姿检测延迟（毫秒）",
         [Key.LblStanceMessage]    = "盾姿文案",
-        [Key.LblLowHpEnabled]     = "最终 BOSS 血量低于阈值时发送##LowHpEnabled",
+        [Key.LblLowHpEnabled]     = "最终 BOSS 血量低于阈值时发送",
         [Key.LblLowHpThreshold]   = "血量阈值（%）",
         [Key.LblLowHpMessage]     = "残血文案",
-        [Key.LblLowHpDeepDungeon] = "也包括深层迷宫（死者宫殿等）##LowHpDeepDungeon",
-        [Key.LblLowHpRequireFullLb] = "要求 LB 满格且本副本未提前用过 LB##LowHpRequireFullLb",
+        [Key.LblLowHpDeepDungeon] = "也包括深层迷宫（死者宫殿等）",
+        [Key.LblLowHpRequireFullLb] = "要求 LB 满格且本副本未提前用过 LB",
         [Key.LblChannel]          = "频道",
         [Key.LblPartyOnly]        = "仅在小队 / 团队中发送（避免 /p 报错）",
         [Key.LblSpecialInstances] = "同时识别深层迷宫 / 挖宝副本",
