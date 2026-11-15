@@ -1,0 +1,21 @@
+{
+  "SchemaVersion": 1,
+  "Modules": [
+    {
+      "InternalName": "SGTAutoShout",
+      "Author": "Slunyu GuiT",
+      "RepositoryURL": "https://github.com/SlunyuGuiT-L/SGT",
+      "Version": "1.0.0",
+      "ApiVersion": 1,
+      "MinimumOmniVersion": "1.1.8.2",
+      "File": "Modules/SGTAutoShout.cs",
+      "Sha256": "7D898910E36F56A30BB0477E809A51830FFC1512F88DDC356AD6E4C4F20DB907",
+      "Localization": {
+        "Source": {
+          "Title": "SGT 自动喊话",
+          "Description": "进本、进战、脱战或血量过低时，自动在指定频道发送一条可定制的消息。默认关闭。"
+        }
+      }
+    }
+  ]
+}
