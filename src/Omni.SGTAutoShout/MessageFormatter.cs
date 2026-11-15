@@ -47,20 +47,38 @@ internal static class MessageFormatter
         return Clean(text);
     }
 
-    /// <summary>聊天是单行：换行/制表符变空格，去掉控制字符，压掉连续空格。</summary>
+    /// <summary>每一行单独清洗：换行保留为多行，空行丢弃，行首尾空白去掉，制表符转空格。</summary>
     public static string Clean(string? text)
     {
         if (string.IsNullOrEmpty(text))
             return string.Empty;
 
-        var builder = new StringBuilder(text.Length);
+        var normalized = text.Replace("\r\n", "\n").Replace('\r', '\n');
+        var lines = normalized.Split('\n');
+        var result = new StringBuilder(text.Length);
+
+        foreach (var rawLine in lines)
+        {
+            var line = CleanLine(rawLine);
+            if (line.Length == 0)
+                continue;
+
+            if (result.Length > 0)
+                result.Append('\n');
+            result.Append(line);
+        }
+
+        return result.ToString();
+    }
+
+    private static string CleanLine(string line)
+    {
+        var builder = new StringBuilder(line.Length);
         var lastWasSpace = true;
-        foreach (var ch in text)
+        foreach (var ch in line)
         {
             switch (ch)
             {
-                case '\r':
-                case '\n':
                 case '\t':
                     if (!lastWasSpace)
                     {

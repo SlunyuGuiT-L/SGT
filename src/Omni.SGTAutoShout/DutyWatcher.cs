@@ -87,6 +87,10 @@ internal sealed class DutyWatcher
 
     private DateTime tankStanceCheckAt = DateTime.MinValue;
 
+    // ---- 待发送的多行文本（每行单独一条消息） ----
+    private readonly Queue<string> outgoingLines = new();
+    private DateTime nextOutgoingAt = DateTime.MinValue;
+
     private string lastSentSummary = "—";
 
     public DutyWatcher(SGTAutoShout.Settings config)
@@ -139,6 +143,8 @@ internal sealed class DutyWatcher
                 territoryName = string.Empty;
                 ResetLowHpState();
                 ResetTankStance();
+                outgoingLines.Clear();
+                nextOutgoingAt = DateTime.MinValue;
             }
 
             return;
@@ -196,11 +202,15 @@ internal sealed class DutyWatcher
 
                 ResetLowHpState();
                 ResetTankStance();
+                outgoingLines.Clear();
+                nextOutgoingAt = DateTime.MinValue;
             }
         }
 
         if (pendingKind != PendingKind.None)
             FlushPending(now);
+
+        FlushOutgoing(now);
 
         if (inDuty)
         {
@@ -771,16 +781,49 @@ internal sealed class DutyWatcher
             return;
         }
 
+        // 文本框里的 /p /a /r 等频道前缀统一去掉，实际频道用模块设置。
         var command = Config.Channel.GetCommand();
-        var line = $"{command} {text}";
+        var queued = 0;
+        foreach (var line in text.Split('\n'))
+        {
+            var stripped = ChatCommandStripper.Strip(line);
+            if (string.IsNullOrWhiteSpace(stripped))
+                continue;
+
+            outgoingLines.Enqueue($"{command} {stripped}");
+            queued++;
+        }
+
+        if (queued == 0)
+        {
+            Svc.Log.Debug("[SGT] 去掉频道指令后没有可发送内容，跳过。");
+            return;
+        }
+
+        Svc.Log.Debug($"[SGT] 已排队 {queued} 行（频道 {command}）");
+        FlushOutgoing(DateTime.UtcNow);
+    }
+
+    /// <summary>逐行发送：每 300ms 发一行，避免多行挤在一起。</summary>
+    private void FlushOutgoing(DateTime now)
+    {
+        if (outgoingLines.Count == 0)
+            return;
+        if (now < nextOutgoingAt)
+            return;
+        if (!CanSendNow(waitCutscene: false))
+            return;
+
+        var line = outgoingLines.Dequeue();
         var success = ChatSender.Send(line);
+        nextOutgoingAt = now.AddMilliseconds(300);
 
         if (success)
         {
-            lastSentSummary = $"{DateTime.Now:HH:mm:ss}  {command} {text}";
+            lastSentSummary = $"{DateTime.Now:HH:mm:ss}  {line}";
             Svc.Log.Debug($"[SGT] 已发送：{line}");
             if (Config.PrintToChat)
-                Svc.ChatGui.Print($"[SGT] 已发送：{command} {text}");
+                Svc.ChatGui.Print($"[SGT] 已发送：{line}");
         }
         else
         {
@@ -788,7 +831,6 @@ internal sealed class DutyWatcher
             Svc.ChatGui.PrintError("[SGT] 发送失败，详见 /xllog。");
         }
     }
-
     private static bool RequiresParty(ChatChannel channel)
         => channel is ChatChannel.Party or ChatChannel.Alliance;
 

@@ -5,15 +5,15 @@
       "InternalName": "SGTAutoShout",
       "Author": "Slunyu GuiT",
       "RepositoryURL": "https://github.com/SlunyuGuiT-L/SGT",
-      "Version": "1.1.1",
+      "Version": "1.2.0",
       "ApiVersion": 1,
       "MinimumOmniVersion": "1.2.0.5",
       "File": "Modules/SGTAutoShout.dll",
-      "Sha256": "3546B89972CC37F9BC7DC29C983D9258E01FBEF65149E921AC398A0159163CB9",
+      "Sha256": "B800EE0E391512D2B662E77D3FCAE360C29D3100E042E59CA277C36E6C254CCB",
       "Localization": {
         "Source": {
           "Title": "SGT 自动喊话",
-          "Description": "进本、完成任务、T 盾姿、四人本最终 BOSS 残血时自动发送消息；支持队伍/团队/喊话/说话/部队频道与占位符。"
+          "Description": "进本、完成任务、T 盾姿、四人本最终 BOSS 残血时自动发送消息；支持多行分条、频道前缀自动剥离、队伍/团队/喊话/说话/部队频道与占位符。"
         }
       }
     }

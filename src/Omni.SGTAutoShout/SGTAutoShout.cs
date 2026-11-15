@@ -47,6 +47,8 @@ public sealed class SGTAutoShout : OmniModuleBase
         if (!Svc.Initialize())
             throw new InvalidOperationException("SGT 自动喊话：无法获取游戏服务，模块未启动。");
 
+        config.Migrate();
+
         var dutyWatcher = new DutyWatcher(config);
         watcher = dutyWatcher;
 
@@ -125,7 +127,6 @@ public sealed class SGTAutoShout : OmniModuleBase
     {
         var changed = false;
 
-        ImGui.TextDisabled(OmniLoc.Get(this, Key.HintTop));
         ImGui.Separator();
 
         OmniControls.SectionLabel(OmniLoc.Get(this, Key.SecEnter));
@@ -180,8 +181,8 @@ public sealed class SGTAutoShout : OmniModuleBase
             watcher?.TestTankStance();
 
         ImGui.SameLine();
-        if (OmniControls.SmallButton(OmniLoc.Get(this, Key.BtnResetTexts), false))
-            changed |= RestoreDefaultTexts();
+        if (OmniControls.SmallButton(OmniLoc.Get(this, Key.BtnClearTexts), false))
+            changed |= ClearTexts();
 
         ImGui.Separator();
         OmniControls.SectionLabel(OmniLoc.Get(this, Key.SecStatus));
@@ -192,15 +193,15 @@ public sealed class SGTAutoShout : OmniModuleBase
             var limitBreak = active.LimitBreak;
             ImGui.TextWrapped(string.Format(
                 OmniLoc.Get(this, Key.StLimitBreak),
-                limitBreak.CurrentUnits,
-                limitBreak.MaxUnits,
-                limitBreak.IsFull ? OmniLoc.Get(this, Key.StYes) : OmniLoc.Get(this, Key.StNo),
-                limitBreak.UsedThisDuty ? OmniLoc.Get(this, Key.StYes) : OmniLoc.Get(this, Key.StNo)));
+                limitBreak.IsFull ? OmniLoc.Get(this, Key.StLbFull) : OmniLoc.Get(this, Key.StLbNotFull),
+                limitBreak.UsedThisDuty ? OmniLoc.Get(this, Key.StLbUsed) : OmniLoc.Get(this, Key.StLbUnused)));
 
             ImGui.TextWrapped(string.Format(OmniLoc.Get(this, Key.StLastSent), active.LastSentSummary));
         }
 
         ImGui.Separator();
+        ImGui.TextDisabled(OmniLoc.Get(this, Key.HintChannelStripped));
+        ImGui.TextDisabled(OmniLoc.Get(this, Key.HintMultiLine));
         ImGui.TextDisabled(OmniLoc.Get(this, Key.HintPlaceholders));
         ImGui.TextDisabled(OmniLoc.Get(this, Key.HintLength));
 
@@ -276,20 +277,20 @@ public sealed class SGTAutoShout : OmniModuleBase
         return true;
     }
 
-    private bool RestoreDefaultTexts()
+    private bool ClearTexts()
     {
-        if (config.EnterMessage == Settings.DefaultEnterMessage &&
-            config.CompleteMessage == Settings.DefaultCompleteMessage &&
-            config.LowHpMessage == Settings.DefaultLowHpMessage &&
-            config.TankStanceMessage == Settings.DefaultTankStanceMessage)
+        if (string.IsNullOrEmpty(config.EnterMessage) &&
+            string.IsNullOrEmpty(config.CompleteMessage) &&
+            string.IsNullOrEmpty(config.LowHpMessage) &&
+            string.IsNullOrEmpty(config.TankStanceMessage))
         {
             return false;
         }
 
-        config.EnterMessage      = Settings.DefaultEnterMessage;
-        config.CompleteMessage   = Settings.DefaultCompleteMessage;
-        config.LowHpMessage      = Settings.DefaultLowHpMessage;
-        config.TankStanceMessage = Settings.DefaultTankStanceMessage;
+        config.EnterMessage      = string.Empty;
+        config.CompleteMessage   = string.Empty;
+        config.LowHpMessage      = string.Empty;
+        config.TankStanceMessage = string.Empty;
         return true;
     }
 
@@ -297,10 +298,20 @@ public sealed class SGTAutoShout : OmniModuleBase
 
     public sealed class Settings
     {
-        public const string DefaultEnterMessage      = "进本啦，请多指教~";
-        public const string DefaultCompleteMessage   = "任务完成啦，大家辛苦啦~";
-        public const string DefaultLowHpMessage      = "最终BOSS只剩 {hp}% 血了，一波带走！";
-        public const string DefaultTankStanceMessage = "盾姿没开：{tank}，记得开盾姿~";
+        // v0.7.0 起默认文案为空：装上不会自己说话，必须自己填
+        public const string DefaultEnterMessage      = "";
+        public const string DefaultCompleteMessage   = "";
+        public const string DefaultLowHpMessage      = "";
+        public const string DefaultTankStanceMessage = "";
+
+        // 旧版本写进配置里的默认文案；升级时清掉，用户自定义内容保留
+        public const string LegacyEnterMessage      = "进本啦，请多指教~";
+        public const string LegacyCompleteMessage   = "任务完成啦，大家辛苦啦~";
+        public const string LegacyLowHpMessage      = "最终BOSS只剩 {hp}% 血了，一波带走！";
+        public const string LegacyTankStanceMessage = "盾姿没开：{tank}，记得开盾姿~";
+
+        /// <summary>配置版本：0 = 旧配置（默认文案非空）。</summary>
+        public int ConfigVersion { get; set; }
 
         public bool   EnterEnabled   { get; set; } = true;
         public string EnterMessage   { get; set; } = DefaultEnterMessage;
@@ -373,6 +384,25 @@ public sealed class SGTAutoShout : OmniModuleBase
             SkipPvp                 = defaults.SkipPvp;
             PrintToChat             = defaults.PrintToChat;
         }
+
+        /// <summary>把旧版本留下的默认文案清成空；自定义内容不动。返回是否发生了改变。</summary>
+        public bool Migrate()
+        {
+            if (ConfigVersion >= 2)
+                return false;
+
+            EnterMessage      = ClearLegacy(EnterMessage, LegacyEnterMessage);
+            CompleteMessage   = ClearLegacy(CompleteMessage, LegacyCompleteMessage);
+            LowHpMessage      = ClearLegacy(LowHpMessage, LegacyLowHpMessage);
+            TankStanceMessage = ClearLegacy(TankStanceMessage, LegacyTankStanceMessage);
+            ConfigVersion     = 2;
+            return true;
+        }
+
+        private static string ClearLegacy(string value, string legacy)
+            => string.Equals((value ?? string.Empty).Trim(), legacy, StringComparison.Ordinal)
+                ? string.Empty
+                : value ?? string.Empty;
     }
 
     // ---------------- 词条 ----------------
@@ -390,7 +420,8 @@ public sealed class SGTAutoShout : OmniModuleBase
         public const string CmdDebug    = "Cmd.Debug";
         public const string CmdUsage    = "Cmd.Usage";
 
-        public const string HintTop             = "Hint.Top";
+        public const string HintChannelStripped = "Hint.ChannelStripped";
+        public const string HintMultiLine       = "Hint.MultiLine";
         public const string HintCompleteTiming  = "Hint.CompleteTiming";
         public const string HintStance          = "Hint.Stance";
         public const string HintLowHp           = "Hint.LowHp";
@@ -434,12 +465,14 @@ public sealed class SGTAutoShout : OmniModuleBase
         public const string BtnTestComplete = "Btn.TestComplete";
         public const string BtnTestLowHp    = "Btn.TestLowHp";
         public const string BtnTestStance   = "Btn.TestStance";
-        public const string BtnResetTexts   = "Btn.ResetTexts";
+        public const string BtnClearTexts   = "Btn.ClearTexts";
 
         public const string StLimitBreak = "St.LimitBreak";
         public const string StLastSent   = "St.LastSent";
-        public const string StYes        = "St.Yes";
-        public const string StNo         = "St.No";
+        public const string StLbFull    = "St.LbFull";
+        public const string StLbNotFull = "St.LbNotFull";
+        public const string StLbUsed    = "St.LbUsed";
+        public const string StLbUnused  = "St.LbUnused";
     }
 
     private static readonly Dictionary<string, string> Texts = new()
@@ -455,12 +488,13 @@ public sealed class SGTAutoShout : OmniModuleBase
         [Key.CmdDebug]    = "输出调试信息",
         [Key.CmdUsage]    = "用法：/omni SGTAutoShout test | testcomplete | testlowhp | teststance | status | debug",
 
-        [Key.HintTop]            = "进本 / 完成任务时自动发一条消息到聊天频道，默认小队。模块启用即为总开关。",
-        [Key.HintCompleteTiming] = "触发时机是副本通关（Duty Completed），不是离开副本；中途团灭、放弃不触发。",
-        [Key.HintStance]         = "只检测玩家 T（骑士/战士/暗黑骑士/绝枪战士），Duty Support 的 NPC T 不检测。占位符：{tank}。",
-        [Key.HintLowHp]          = "仅四人内容（迷宫/讨伐/特殊迷宫），每次副本只判定一次；要求 LB 满格且本副本未提前放过 LB。占位符：{boss} {hp} {threshold}。",
-        [Key.HintPlaceholders]   = "占位符：{duty} 副本名、{territory} 区域名、{player} 角色名。",
-        [Key.HintLength]         = "游戏聊天有单条长度限制，建议 60 字以内。",
+        [Key.HintCompleteTiming] = "通关时发送；团灭、放弃副本不发送。",
+        [Key.HintStance]         = "可用 {tank} 表示没开盾姿的 T 名字；只检测玩家 T（骑士 / 战士 / 暗黑骑士 / 绝枪战士），NPC 队友不检测。",
+        [Key.HintLowHp]          = "只对四人副本生效，每次副本判定一次；LB 没满或本副本已用过 LB 时不喊话。可用 {boss} / {hp} / {threshold}。",
+        [Key.HintChannelStripped] = "文本框里的 /p /a /r 等频道前缀会自动去掉，实际频道以「发送设置」为准。",
+        [Key.HintMultiLine]       = "多行文本会逐行发送，每行间隔约 0.3 秒。",
+        [Key.HintPlaceholders]   = "可用变量：{duty} 副本名、{territory} 区域名、{player} 角色名、{boss} BOSS 名、{hp} 血量百分比、{threshold} 阈值、{tank} T 名字。",
+        [Key.HintLength]         = "建议每条 60 字以内；默认文案为空，填了才会发送。",
 
         [Key.SecEnter]    = "进本播报",
         [Key.SecComplete] = "完成任务播报",
@@ -499,11 +533,13 @@ public sealed class SGTAutoShout : OmniModuleBase
         [Key.BtnTestComplete] = "测试完成",
         [Key.BtnTestLowHp]    = "测试残血",
         [Key.BtnTestStance]   = "测试盾姿",
-        [Key.BtnResetTexts]   = "恢复默认文本",
+        [Key.BtnClearTexts]   = "清空全部文本",
 
-        [Key.StLimitBreak] = "LB：{0}/{1}，满格={2}，本副本已用过 LB={3}",
+        [Key.StLimitBreak] = "LB：{0}，本副本{1} LB",
         [Key.StLastSent]   = "上次发送：{0}",
-        [Key.StYes]        = "是",
-        [Key.StNo]         = "否"
+        [Key.StLbFull]     = "已满",
+        [Key.StLbNotFull]  = "未满",
+        [Key.StLbUsed]     = "已用过",
+        [Key.StLbUnused]   = "未用过"
     };
 }
