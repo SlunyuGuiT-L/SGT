@@ -16,6 +16,22 @@
           "Description": "进本、完成任务、T 盾姿、四人本最终 BOSS 残血时自动发送消息；支持多行分条、频道前缀自动剥离、队伍/团队/喊话/说话/部队频道与占位符。"
         }
       }
+    },
+    {
+      "InternalName": "SGTTitleSearch",
+      "Author": "Slunyu GuiT",
+      "RepositoryURL": "https://github.com/SlunyuGuiT-L/SGT",
+      "Version": "1.0.0",
+      "ApiVersion": 1,
+      "MinimumOmniVersion": "1.2.0.5",
+      "File": "Modules/SGTTitleSearch.dll",
+      "Sha256": "1A953855BFD22BB8FE6CD28ACEAC36D5584019095BCE689FD41073A961AED601",
+      "Localization": {
+        "Source": {
+          "Title": "SGT 称号搜索",
+          "Description": "搜索自己已获得的称号并一键佩戴；同时显示客户端「即将完成」成就与进度。"
+        }
+      }
     }
   ]
 }
